@@ -11,4 +11,5 @@ langchain-community
 langchain-openai
 email-validator
 python-dateutil
+gunicorn
 pydantic
