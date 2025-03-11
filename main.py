@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 import os
 import json
 from bs4 import BeautifulSoup
-from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 import pickle
@@ -36,7 +35,6 @@ EMAIL_ACCOUNT = os.getenv("EMAIL_ACCOUNT")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
 llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4-turbo")
 
 class ChatRequest(BaseModel):
