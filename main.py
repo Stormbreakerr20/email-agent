@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 import os
 import json
 from bs4 import BeautifulSoup
-from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 import pickle
@@ -35,7 +34,6 @@ EMAIL_ACCOUNT = os.getenv("EMAIL_ACCOUNT")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
 llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4-turbo")
 
 class ChatRequest(BaseModel):
@@ -69,7 +67,7 @@ def fetch_and_append_emails(filename: str):
         existing_emails = []
 
     _, messages = mail.search(None, "ALL")
-    messages = messages[0].split()[-50:]
+    messages = messages[0].split()[-200:]
     print(f"Fetched {len(messages)} latest emails.", flush=True)
 
     new_emails = []
