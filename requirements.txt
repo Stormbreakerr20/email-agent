@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-dotenv
+beautifulsoup4
+sentence-transformers
+faiss-cpu
+numpy
+openai
+langchain
+langchain-community
+langchain-openai
+email-validator
+python-dateutil
+pydantic
