@@ -22,6 +22,7 @@ from datetime import datetime
 from dateutil.parser import parse
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from functions import clean_html
 
 app = FastAPI()
 
@@ -29,6 +30,9 @@ app = FastAPI()
 IMAP_SERVER = "imap.gmail.com"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
+OUTLOOK_IMAP_SERVER = "outlook.office365.com"
+OUTLOOK_SMTP_SERVER = "smtp.office365.com"
+OUTLOOK_SMTP_PORT = 587
 load_dotenv()
 
 EMAIL_ACCOUNT = os.getenv("EMAIL_ACCOUNT")
@@ -40,12 +44,12 @@ llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4-turbo")
 class ChatRequest(BaseModel):
     user_prompt: str
     session_id: str
+    emailID: str
 
 class EmailRequest(BaseModel):
     email_id: str
 
 #-------------------------functions----------------------------------------------------------
-# Function to clean HTML content from emails
 def clean_html(html):
     soup = BeautifulSoup(html, "html.parser")
     return soup.get_text()
@@ -243,9 +247,11 @@ conversation_history = {}
 @app.post("/gmail/chat")
 async def gmail_chat(request: ChatRequest):
     try:
-        print(request.dict())
+        # print(request.dict())
         user_prompt = request.user_prompt
         session_id = request.session_id
+        email_id = request.emailID
+        filename = email_id.split('@')[0] + "_gmail.json"
 
         if session_id not in conversation_history:
             conversation_history[session_id] = []
@@ -279,13 +285,11 @@ async def gmail_chat(request: ChatRequest):
         print("intent:", intent)
         if "show_latest_n" in intent:
             n = intent_data.get("number", 5)  # Default to fetching the latest 5 emails
-            filename = EMAIL_ACCOUNT.split('@')[0] + "_gmail.json"
             latest_emails = get_latest_n_emails(n, filename)
             response = json.dumps(latest_emails, indent=4)
             conversation_history[session_id].append({"role": "assistant", "content": response})
         elif "search" in intent:
             keyword = intent_data.get("keyword", "")
-            filename = EMAIL_ACCOUNT.split('@')[0] + "_gmail.json"
             searched_emails = search_emails_by_keyword(keyword, filename)
             response = json.dumps(searched_emails, indent=4)
             conversation_history[session_id].append({"role": "assistant", "content": response})
