@@ -44,7 +44,7 @@ llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4-turbo")
 class ChatRequest(BaseModel):
     user_prompt: str
     session_id: str
-    emailID: str
+    email_id: str
 
 class EmailRequest(BaseModel):
     email_id: str
@@ -250,7 +250,7 @@ async def gmail_chat(request: ChatRequest):
         # print(request.dict())
         user_prompt = request.user_prompt
         session_id = request.session_id
-        email_id = request.emailID
+        email_id = request.email_id
         filename = email_id.split('@')[0] + "_gmail.json"
 
         if session_id not in conversation_history:
