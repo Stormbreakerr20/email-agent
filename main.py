@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 import os
 import json
 from bs4 import BeautifulSoup
-import numpy as np
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -39,8 +38,6 @@ OUTLOOK_IMAP_SERVER = "outlook.office365.com"
 OUTLOOK_SMTP_SERVER = "smtp.office365.com"
 OUTLOOK_SMTP_PORT = 587
 
-EMAIL_ACCOUNT = os.getenv("EMAIL_ACCOUNT")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 mongodb_uri = os.getenv("MONGODB_URI")
 mongodb_password = os.getenv("MONGODB_PASSWORD")
@@ -312,8 +309,11 @@ async def create_mail(request: EmailSchema):
 async def gmail_startup(request: EmailRequest):
     try:
         filename = request.email_id.split('@')[0] + "_gmail"
-        temp_passkey=decrypt_password(email_collection.find_one({"mailID": request.email_id})["passkey"],private_key)
-        new_emails = fetch_and_append_emails(filename,request.email_id,temp_passkey)
+        email_data = email_collection.find_one({"mailID": request.email_id})
+        if not email_data:
+            raise HTTPException(status_code=400, detail="Email ID not found in the database")
+        temp_passkey = decrypt_password(email_data["passkey"], private_key)
+        new_emails = fetch_and_append_emails(filename, request.email_id, temp_passkey)
         del temp_passkey
         return {"status": "success", "message": f"Fetched and appended {len(new_emails)} emails for {request.email_id}"}
     except Exception as e:
