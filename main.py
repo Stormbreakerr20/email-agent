@@ -5,10 +5,7 @@ from dotenv import load_dotenv
 import os
 import json
 from bs4 import BeautifulSoup
-import faiss
 import numpy as np
-import pickle
-import openai
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -21,11 +18,19 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from datetime import datetime
 from dateutil.parser import parse
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from functions import clean_html
+from pydantic import BaseModel, Field,field_validator
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
+from typing import ClassVar
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP # type: ignore
+import base64
+# from functions import encrypt_password,decrypt_password,fetch_and_append_emails,get_latest_n_emails,search_emails_by_keyword,generate_reply,send_email,chat_with_bot,clean_html
 
 app = FastAPI()
 
+# Load environment variables
+load_dotenv()
 
 IMAP_SERVER = "imap.gmail.com"
 SMTP_SERVER = "smtp.gmail.com"
@@ -33,11 +38,23 @@ SMTP_PORT = 587
 OUTLOOK_IMAP_SERVER = "outlook.office365.com"
 OUTLOOK_SMTP_SERVER = "smtp.office365.com"
 OUTLOOK_SMTP_PORT = 587
-load_dotenv()
 
 EMAIL_ACCOUNT = os.getenv("EMAIL_ACCOUNT")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 openai_api_key = os.getenv("OPENAI_API_KEY")
+mongodb_uri = os.getenv("MONGODB_URI")
+mongodb_password = os.getenv("MONGODB_PASSWORD")
+private_key = base64.b64decode(os.getenv('PRIVATE_KEY'))
+public_key = base64.b64decode(os.getenv('PUBLIC_KEY'))
+
+# Connect to MongoDB
+try:
+    client = MongoClient(mongodb_uri, password=mongodb_password)
+    db = client['email_database']
+    email_collection = db['emails']
+    print("Successfully connected to MongoDB.", flush=True)
+except Exception as e:
+    print(f"Failed to connect to MongoDB: {e}", flush=True)
 
 llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4-turbo")
 
@@ -49,15 +66,38 @@ class ChatRequest(BaseModel):
 class EmailRequest(BaseModel):
     email_id: str
 
+class EmailSchema(BaseModel):
+    mailID: str = Field(..., description="Must be unique")
+    source: str = Field(..., pattern="^(gmail|outlook)$")
+    passkey: str
+
+    @field_validator('mailID')
+    @classmethod
+    def mailID_must_be_unique(cls, v):
+        if email_collection.find_one({"mailID": v}):
+            raise ValueError('mailID must be unique')
+        return v
+
 #-------------------------functions----------------------------------------------------------
 def clean_html(html):
     soup = BeautifulSoup(html, "html.parser")
     return soup.get_text()
 
-def fetch_and_append_emails(filename: str):
+def encrypt_password(password, public_key):
+    rsa_key = RSA.import_key(public_key)
+    cipher = PKCS1_OAEP.new(rsa_key)
+    encrypted_password = cipher.encrypt(password.encode())
+    return base64.b64encode(encrypted_password).decode('utf-8')
+def decrypt_password(encrypted_password, private_key):
+    rsa_key = RSA.import_key(private_key)
+    cipher = PKCS1_OAEP.new(rsa_key)
+    decrypted_password = cipher.decrypt(base64.b64decode(encrypted_password))
+    return decrypted_password.decode('utf-8')
+
+def fetch_and_append_emails(filename: str,email_id:str,email_password:str):
     print("Connecting to Gmail IMAP server...", flush=True)
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-    mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
+    mail.login(email_id, email_password)
     mail.select("inbox")
     print("Logged in and selected inbox.", flush=True)
 
@@ -233,11 +273,48 @@ def send_email(to_email, subject, body):
     print("Email sent.", flush=True)
 # -------------------------------functions end -------------------------------------------
 
+@app.post("/create")
+async def create_mail(request: EmailSchema):
+    try:
+        # Check if the passkey is correct by connecting to the email server
+        if request.source == "gmail":
+            server = imaplib.IMAP4_SSL(IMAP_SERVER)
+        elif request.source == "outlook":
+            server = imaplib.IMAP4_SSL(OUTLOOK_IMAP_SERVER)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid email source")
+
+        try:
+            server.login(request.mailID, request.passkey)
+            server.logout()
+        except imaplib.IMAP4.error:
+            raise HTTPException(status_code=400, detail="Invalid passkey or unable to connect to the email server")
+        
+        # Encrypt the passkey
+        encrypted_passkey = encrypt_password(request.passkey, public_key)
+        # Prepare the email data
+        email_data = {
+            "mailID": request.mailID,
+            "source": request.source,
+            "passkey": encrypted_passkey
+        }
+        # Insert the email data into the database
+        result = email_collection.insert_one(email_data)
+        print("Inserted ID:", result.inserted_id)
+        return {"status": "success", "message": "Email data saved successfully"}
+    except DuplicateKeyError:
+        raise HTTPException(status_code=400, detail="mailID must be unique")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/gmail/startup")
 async def gmail_startup(request: EmailRequest):
     try:
         filename = request.email_id.split('@')[0] + "_gmail"
-        new_emails = fetch_and_append_emails(filename)
+        temp_passkey=decrypt_password(email_collection.find_one({"mailID": request.email_id})["passkey"],private_key)
+        new_emails = fetch_and_append_emails(filename,request.email_id,temp_passkey)
+        del temp_passkey
         return {"status": "success", "message": f"Fetched and appended {len(new_emails)} emails for {request.email_id}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
