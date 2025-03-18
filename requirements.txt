@@ -1,14 +1,15 @@
-fastapi
-uvicorn
+imaplib2==3.6
+email  # Comes with Python standard library, no need to install separately
 python-dotenv
 beautifulsoup4
-sentence-transformers
-faiss-cpu
-numpy
-openai
+smtplib  # Also part of Python standard library
 langchain
 langchain-community
 langchain-openai
-email-validator
-python-dateutil
+openai
 pydantic
+fastapi
+uvicorn
+pymongo
+python-dateutil
+pycryptodome
