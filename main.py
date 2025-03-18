@@ -254,10 +254,10 @@ def chat_with_bot(conversation_history, user_input):
     conversation_history.append({"role": "assistant", "content": bot_reply.content.strip()})
     return bot_reply.content.strip(), conversation_history
 
-def send_email(to_email, subject, body):
+def send_email(to_email, subject, body,email_account:str,email_password:str):
     print(f"Sending email to {to_email} with subject: {subject}", flush=True)
     msg = MIMEMultipart()
-    msg["From"] = EMAIL_ACCOUNT
+    msg["From"] = email_account
     msg["To"] = to_email
     msg["Subject"] = subject
 
@@ -265,8 +265,8 @@ def send_email(to_email, subject, body):
 
     with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
         server.starttls()
-        server.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
-        server.sendmail(EMAIL_ACCOUNT, to_email, msg.as_string())
+        server.login(email_account, email_password)
+        server.sendmail(email_account, to_email, msg.as_string())
     print("Email sent.", flush=True)
 # -------------------------------functions end -------------------------------------------
 
@@ -329,7 +329,7 @@ async def gmail_chat(request: ChatRequest):
         session_id = request.session_id
         email_id = request.email_id
         filename = email_id.split('@')[0] + "_gmail.json"
-
+        
         if session_id not in conversation_history:
             conversation_history[session_id] = []
 
@@ -377,12 +377,17 @@ async def gmail_chat(request: ChatRequest):
             response = reply_content
             conversation_history[session_id].append({"role": "assistant", "content": response})
         elif "send_generated_reply" in intent:
+            email_data = email_collection.find_one({"mailID": request.email_id})
+            if not email_data:
+                raise HTTPException(status_code=400, detail="Email ID not found in the database")
+            temp_passkey = decrypt_password(email_data["passkey"], private_key)
             to_email = intent_data.get("to_email", "")
             subject = intent_data.get("subject", "")
             body = intent_data.get("body", "")
-            send_email(to_email, subject, body)
+            send_email(to_email, subject, body,email_id,temp_passkey)
             response = f"Email sent to {to_email} with subject: {subject} and body: {body}"
             conversation_history[session_id].append({"role": "assistant", "content": response})
+            del temp_passkey
         else:
             response, conversation_history[session_id] = chat_with_bot(conversation_history[session_id], user_prompt)
         
