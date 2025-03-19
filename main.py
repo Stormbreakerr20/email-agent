@@ -194,46 +194,46 @@ async def gmail_chat(request: ChatRequest):
         intent_data = json.loads(intent)
         conversation_history[session_id].append({"role": "assistant", "content": intent_reply.content.strip()})
         print("intent:", intent)
-        return {"status": "success", "response": intent_reply.content.strip()}
-        # if "show_latest_n" in intent:
-        #     n = intent_data.get("number", 5)  # Default to fetching the latest 5 emails
-        #     latest_emails = get_latest_n_emails(n, filename)
-        #     response = json.dumps(latest_emails, indent=4)
-        #     conversation_history[session_id].append({"role": "assistant", "content": response})
-        # elif "search" in intent:
-        #     keyword = intent_data.get("keyword", "")
-        #     searched_emails = search_emails_by_keyword(keyword, filename)
-        #     response = json.dumps(searched_emails, indent=4)
-        #     conversation_history[session_id].append({"role": "assistant", "content": response})
-        # elif "generate_reply" in intent:
-        #     email_body = user_prompt.split("generate reply for ")[-1]
-        #     instruction = "Please generate a professional reply."
-        #     reply_content, _ = generate_reply(email_body, instruction, llm)
-        #     response = reply_content
-        #     conversation_history[session_id].append({"role": "assistant", "content": response})
-        # elif "send_generated_reply" in intent:
-        #     email_data = email_collection.find_one({"mailID": request.email_id})
-        #     if not email_data:
-        #         raise HTTPException(status_code=400, detail="Email ID not found in the database")
-        #     temp_passkey = decrypt_password(email_data["passkey"], private_key)
-        #     to_email = intent_data.get("to_email", "")
-        #     subject = intent_data.get("subject", "")
-        #     body = intent_data.get("body", "")
-        #     send_email(to_email, subject, body, email_id, temp_passkey, SMTP_SERVER, SMTP_PORT)
-        #     response = f"Email sent to {to_email} with subject: {subject} and body: {body}"
-        #     conversation_history[session_id].append({"role": "assistant", "content": response})
-        #     del temp_passkey
-        # else:
-        #     response, conversation_history[session_id] = chat_with_bot(conversation_history[session_id], user_prompt, llm)
+        # return {"status": "success", "response": intent_reply.content.strip()}
+        if "show_latest_n" in intent:
+            n = intent_data.get("number", 5)  # Default to fetching the latest 5 emails
+            latest_emails = get_latest_n_emails(n, filename)
+            response = json.dumps(latest_emails, indent=4)
+            conversation_history[session_id].append({"role": "assistant", "content": response})
+        elif "search" in intent:
+            keyword = intent_data.get("keyword", "")
+            searched_emails = search_emails_by_keyword(keyword, filename)
+            response = json.dumps(searched_emails, indent=4)
+            conversation_history[session_id].append({"role": "assistant", "content": response})
+        elif "generate_reply" in intent:
+            email_body = user_prompt.split("generate reply for ")[-1]
+            instruction = "Please generate a professional reply."
+            reply_content, _ = generate_reply(email_body, instruction, llm)
+            response = reply_content
+            conversation_history[session_id].append({"role": "assistant", "content": response})
+        elif "send_generated_reply" in intent:
+            email_data = email_collection.find_one({"mailID": request.email_id})
+            if not email_data:
+                raise HTTPException(status_code=400, detail="Email ID not found in the database")
+            temp_passkey = decrypt_password(email_data["passkey"], private_key)
+            to_email = intent_data.get("to_email", "")
+            subject = intent_data.get("subject", "")
+            body = intent_data.get("body", "")
+            send_email(to_email, subject, body, email_id, temp_passkey, SMTP_SERVER, SMTP_PORT)
+            response = f"Email sent to {to_email} with subject: {subject} and body: {body}"
+            conversation_history[session_id].append({"role": "assistant", "content": response})
+            del temp_passkey
+        else:
+            response, conversation_history[session_id] = chat_with_bot(conversation_history[session_id], user_prompt, llm)
         
-        # # Convert response to human-readable form using GPT-4
-        # human_readable_message = [
-        #     SystemMessage(content="Convert the following response to a human-readable form only if necessary,else return the message itself:"),
-        #     HumanMessage(content=response)
-        # ]
-        # human_readable_reply = llm.invoke(human_readable_message)
-        # human_readable_response = human_readable_reply.content.strip()
+        # Convert response to human-readable form using GPT-4
+        human_readable_message = [
+            SystemMessage(content="Convert the following response to a human-readable form only if necessary,else return the message itself:"),
+            HumanMessage(content=response)
+        ]
+        human_readable_reply = llm.invoke(human_readable_message)
+        human_readable_response = human_readable_reply.content.strip()
         
-        # return {"status": "success", "response": human_readable_response}
+        return {"status": "success", "response": human_readable_response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
