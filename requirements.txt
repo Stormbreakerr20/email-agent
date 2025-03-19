@@ -1,4 +1,3 @@
-imaplib2
 email
 python-dotenv
 beautifulsoup4
