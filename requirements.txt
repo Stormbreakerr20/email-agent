@@ -1,4 +1,4 @@
-imaplib2==3.6
+imaplib2
 email
 python-dotenv
 beautifulsoup4
