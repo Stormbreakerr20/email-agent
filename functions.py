@@ -60,7 +60,7 @@ def fetch_and_append_emails(filename: str, email_id: str, email_password: str, i
         existing_emails = []
 
     _, messages = mail.search(None, "ALL")
-    messages = messages[0].split()[-100:]
+    messages = messages[0].split()[-20:]
     print(f"Fetched {len(messages)} latest emails.", flush=True)
 
     new_emails = []
