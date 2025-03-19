@@ -69,7 +69,7 @@ def fetch_and_append_emails(filename: str, email_id: str, email_password: str, i
         if msg_id_str in existing_ids:
             continue
 
-        print(f"Fetching email with ID: {msg_id_str}", flush=True)
+        # print(f"Fetching email with ID: {msg_id_str}", flush=True)
         _, msg_data = mail.fetch(msg_id, "(RFC822)")
         msg = email.message_from_bytes(msg_data[0][1])
         
@@ -128,7 +128,7 @@ def fetch_and_append_emails(filename: str, email_id: str, email_password: str, i
             "date": date,
             "body": body
         })
-        print(f"Email from {from_name} ({from_email}) on {date} fetched.", flush=True)
+        # print(f"Email from {from_name} ({from_email}) on {date} fetched.", flush=True)
 
     # Append new emails to JSON file
     if new_emails:
