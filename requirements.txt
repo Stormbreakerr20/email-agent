@@ -1,6 +1,5 @@
 python-dotenv
 beautifulsoup4
-smtplib
 langchain
 langchain-community
 langchain-openai
