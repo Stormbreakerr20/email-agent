@@ -45,6 +45,11 @@ private_key = base64.b64decode(os.getenv('PRIVATE_KEY'))
 public_key = base64.b64decode(os.getenv('PUBLIC_KEY'))
 
 # Connect to MongoDB
+client = None
+db = None
+email_collection = None
+
+# Connect to MongoDB
 try:
     client = MongoClient(mongodb_uri, password=mongodb_password)
     db = client['email_database']
@@ -52,7 +57,7 @@ try:
     print("Successfully connected to MongoDB.", flush=True)
 except Exception as e:
     print(f"Failed to connect to MongoDB: {e}", flush=True)
-
+    
 llm = ChatOpenAI(api_key=openai_api_key, model="gpt-4-turbo")
 
 class ChatRequest(BaseModel):
@@ -71,9 +76,18 @@ class EmailSchema(BaseModel):
     @field_validator('mailID')
     @classmethod
     def mailID_must_be_unique(cls, v):
-        if email_collection.find_one({"mailID": v}):
-            raise ValueError('mailID must be unique')
-        return v
+        if email_collection is None:
+            # Skip validation if MongoDB is not connected
+            return v
+            
+        try:
+            if email_collection.find_one({"mailID": v}):
+                raise ValueError('mailID must be unique')
+            return v
+        except Exception as e:
+            print(f"MongoDB validation error: {e}")
+            # Fall back to accepting the value if we can't check MongoDB
+            return v
 
 #-------------------------functions----------------------------------------------------------
 def clean_html(html):
@@ -273,6 +287,12 @@ def send_email(to_email, subject, body,email_account:str,email_password:str):
 @app.post("/create")
 async def create_mail(request: EmailSchema):
     try:
+        # First explicitly check if the email already exists in MongoDB
+        if email_collection is not None:
+            existing_email = email_collection.find_one({"mailID": request.mailID})
+            if existing_email:
+                raise HTTPException(status_code=400, detail="mailID must be unique")
+        
         # Check if the passkey is correct by connecting to the email server
         if request.source == "gmail":
             server = imaplib.IMAP4_SSL(IMAP_SERVER)
@@ -295,16 +315,26 @@ async def create_mail(request: EmailSchema):
             "source": request.source,
             "passkey": encrypted_passkey
         }
+        
         # Insert the email data into the database
-        result = email_collection.insert_one(email_data)
-        print("Inserted ID:", result.inserted_id)
+        if email_collection is None:
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        try:
+            result = email_collection.insert_one(email_data)
+            print("Inserted ID:", result.inserted_id)
+        except DuplicateKeyError:
+            # This is a backup check in case of race conditions
+            raise HTTPException(status_code=400, detail="mailID must be unique")
+            
         return {"status": "success", "message": "Email data saved successfully"}
-    except DuplicateKeyError:
-        raise HTTPException(status_code=400, detail="mailID must be unique")
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
+        # For any other exceptions, return a 500 error
         raise HTTPException(status_code=500, detail=str(e))
-
-
+    
 @app.post("/gmail/startup")
 async def gmail_startup(request: EmailRequest):
     try:
