@@ -1,4 +1,3 @@
-email
 python-dotenv
 beautifulsoup4
 smtplib
