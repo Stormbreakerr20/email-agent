@@ -1,8 +1,8 @@
 imaplib2==3.6
-email  # Comes with Python standard library, no need to install separately
+email
 python-dotenv
 beautifulsoup4
-smtplib  # Also part of Python standard library
+smtplib
 langchain
 langchain-community
 langchain-openai
