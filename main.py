@@ -4,7 +4,7 @@ from email.header import decode_header
 from dotenv import load_dotenv
 import os
 import json
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup 
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
